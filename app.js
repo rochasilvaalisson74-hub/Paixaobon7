@@ -1,1 +1,322 @@
-const PIX_KEY = "7c868247-e256-4bab-894a-10e7a242a63a"; const WHATSAPP = "5516981721867"; const products = [ { id: 1, name: "Curso 7", description: "Sistemas & Segurança", price: 59.90 }, { id: 2, name: "Cartões Digitais", description: "Cartão digital profissional", price: 29.90 } ]; let cart = []; function money(value) { return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); } function render() { const app = document.getElementById("app"); app.innerHTML = ` <main class="container"> <header class="hero"> <h1>Paixãobon7</h1> <p>Produtos, cursos e soluções.</p> <p>Uma experiência simples e profissional.</p> </header> <section> <h2>Produtos</h2> <div class="products"> ${products.map(product => ` <article class="product"> <h3>${product.name}</h3> <p>${product.description}</p> <strong>${money(product.price)}</strong> <button onclick="addToCart(${product.id})"> Adicionar ao pedido </button> </article> `).join("")} </div> </section> <section class="cart"> <h2>Seu pedido</h2> <div id="cart-items"></div> <h3>Total: <span id="cart-total">R$ 0,00</span></h3> <button onclick="checkout()" class="checkout"> Finalizar pelo WhatsApp </button> </section> <section class="pix"> <h2>Pagamento via Pix</h2> <p>Chave Pix:</p> <div class="pix-key">${PIX_KEY}</div> <button onclick="copyPix()">Copiar chave Pix</button> </section> <footer> <p>Paixãobon7 © 2026</p> </footer> </main> `; renderCart(); } function addToCart(id) { const product = products.find(item => item.id === id); if (!product) return; cart.push(product); renderCart(); } function removeFromCart(index) { cart.splice(index, 1); renderCart(); } function renderCart() { const items = document.getElementById("cart-items"); const totalElement = document.getElementById("cart-total"); if (!items || !totalElement) return; if (cart.length === 0) { items.innerHTML = "<p>Seu carrinho está vazio.</p>"; totalElement.textContent = money(0); return; } items.innerHTML = cart.map((product, index) => ` <div class="cart-item"> <span>${product.name} — ${money(product.price)}</span> <button onclick="removeFromCart(${index})"> Remover </button> </div> `).join(""); const total = cart.reduce((sum, product) => sum + product.price, 0); totalElement.textContent = money(total); } function copyPix() { navigator.clipboard.writeText(PIX_KEY) .then(() => { alert("Chave Pix copiada!"); }) .catch(() => { alert("Não foi possível copiar automaticamente."); }); } function checkout() { if (cart.length === 0) { alert("Adicione pelo menos um produto ao pedido."); return; } const total = cart.reduce((sum, product) => sum + product.price, 0); const items = cart .map(product => `• ${product.name} — ${money(product.price)}`) .join("\n"); const message = `Olá! Quero fazer um pedido na Paixãobon7. ${items} Total: ${money(total)} Pagamento via Pix. `; const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`; window.open(url, "_blank"); } render(); 
+const SUPABASE_URL = "https://sxkcpljlkqmnvkvebmma.supabase.co";
+const SUPABASE_KEY = "sb_publishable_7nC0im2FRozidAwQfBoqA_esAWhSjs";
+
+const PIX_KEY = "7c868247-e256-4bab-894a-10e7a242a63a";
+const WHATSAPP = "5516981721867";
+
+let products = [];
+let cart = [];
+
+function money(value) {
+  return Number(value).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
+async function loadProducts() {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/produtos?ativo=eq.true&select=*`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Não foi possível carregar os produtos.");
+  }
+
+  products = await response.json();
+  render();
+}
+
+function render() {
+  const app = document.getElementById("app");
+
+  app.innerHTML = `
+    <main class="container">
+
+      <header class="hero">
+        <h1>Paixãobon7</h1>
+        <p>Produtos, cursos e soluções.</p>
+        <p>Uma experiência simples e profissional.</p>
+      </header>
+
+      <section>
+        <h2>Produtos</h2>
+
+        <div class="products">
+          ${
+            products.length
+              ? products.map(product => `
+                <article class="product">
+                  ${
+                    product.imagem_url
+                      ? `<img src="${product.imagem_url}" alt="${product.nome}">`
+                      : ""
+                  }
+
+                  <h3>${product.nome}</h3>
+                  <p>${product.descricao || ""}</p>
+
+                  <strong>${money(product.preco)}</strong>
+
+                  <button onclick="addToCart(${product.id})">
+                    Adicionar ao pedido
+                  </button>
+                </article>
+              `).join("")
+              : "<p>Nenhum produto disponível no momento.</p>"
+          }
+        </div>
+      </section>
+
+      <section class="cart">
+        <h2>Seu pedido</h2>
+
+        <div id="cart-items"></div>
+
+        <h3>
+          Total:
+          <span id="cart-total">R$ 0,00</span>
+        </h3>
+
+        ${
+          cart.length
+            ? `
+              <input id="cliente-nome"
+                     type="text"
+                     placeholder="Seu nome">
+
+              <input id="cliente-telefone"
+                     type="tel"
+                     placeholder="Seu telefone">
+
+              <input id="cliente-endereco"
+                     type="text"
+                     placeholder="Seu endereço">
+
+              <input id="cliente-cidade"
+                     type="text"
+                     placeholder="Sua cidade">
+
+              <input id="cliente-cep"
+                     type="text"
+                     placeholder="Seu CEP">
+
+              <button onclick="checkout()" class="checkout">
+                Finalizar pedido
+              </button>
+            `
+            : ""
+        }
+      </section>
+
+      <section class="pix">
+        <h2>Pagamento via Pix</h2>
+        <p>Chave Pix:</p>
+
+        <div class="pix-key">${PIX_KEY}</div>
+
+        <button onclick="copyPix()">
+          Copiar chave Pix
+        </button>
+      </section>
+
+      <footer>
+        <p>Paixãobon7 © 2026</p>
+      </footer>
+
+    </main>
+  `;
+
+  renderCart();
+}
+
+function addToCart(id) {
+  const product = products.find(item => item.id === id);
+
+  if (!product) return;
+
+  cart.push(product);
+
+  render();
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+
+  render();
+}
+
+function renderCart() {
+  const items = document.getElementById("cart-items");
+  const totalElement = document.getElementById("cart-total");
+
+  if (!items || !totalElement) return;
+
+  if (cart.length === 0) {
+    items.innerHTML = "<p>Seu carrinho está vazio.</p>";
+    totalElement.textContent = money(0);
+    return;
+  }
+
+  items.innerHTML = cart.map((product, index) => `
+    <div class="cart-item">
+      <span>
+        ${product.nome} — ${money(product.preco)}
+      </span>
+
+      <button onclick="removeFromCart(${index})">
+        Remover
+      </button>
+    </div>
+  `).join("");
+
+  const total = cart.reduce(
+    (sum, product) => sum + Number(product.preco),
+    0
+  );
+
+  totalElement.textContent = money(total);
+}
+
+async function checkout() {
+  if (cart.length === 0) {
+    alert("Adicione um produto ao pedido.");
+    return;
+  }
+
+  const nome = document.getElementById("cliente-nome").value.trim();
+  const telefone = document.getElementById("cliente-telefone").value.trim();
+  const endereco = document.getElementById("cliente-endereco").value.trim();
+  const cidade = document.getElementById("cliente-cidade").value.trim();
+  const cep = document.getElementById("cliente-cep").value.trim();
+
+  if (!nome || !telefone || !endereco || !cidade || !cep) {
+    alert("Preencha todos os dados do pedido.");
+    return;
+  }
+
+  const total = cart.reduce(
+    (sum, product) => sum + Number(product.preco),
+    0
+  );
+
+  const pedidoResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/pedidos`,
+    {
+      method: "POST",
+
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+
+      body: JSON.stringify({
+        nome_cliente: nome,
+        telefone: telefone,
+        endereco: endereco,
+        cidade: cidade,
+        cep: cep,
+        total: total,
+        status: "aguardando_pagamento"
+      })
+    }
+  );
+
+  if (!pedidoResponse.ok) {
+    const error = await pedidoResponse.text();
+
+    console.error(error);
+
+    alert("Não foi possível criar o pedido.");
+    return;
+  }
+
+  const pedido = await pedidoResponse.json();
+  const pedidoId = pedido[0].id;
+
+  for (const product of cart) {
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/itens_pedido`,
+      {
+        method: "POST",
+
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          pedido_id: pedidoId,
+          produto_id: product.id,
+          nome_produto: product.nome,
+          quantidade: 1,
+          preco: product.preco
+        })
+      }
+    );
+  }
+
+  const items = cart
+    .map(product =>
+      `• ${product.nome} — ${money(product.preco)}`
+    )
+    .join("\n");
+
+  const message =
+`Olá! Quero fazer um pedido na Paixãobon7.
+
+Pedido: #${pedidoId}
+
+Cliente: ${nome}
+Telefone: ${telefone}
+
+${items}
+
+Total: ${money(total)}
+
+Pagamento via Pix.
+
+Chave Pix:
+${PIX_KEY}`;
+
+  const whatsappUrl =
+    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+
+  window.open(whatsappUrl, "_blank");
+
+  cart = [];
+  render();
+}
+
+function copyPix() {
+  navigator.clipboard.writeText(PIX_KEY)
+    .then(() => {
+      alert("Chave Pix copiada!");
+    })
+    .catch(() => {
+      alert("Não foi possível copiar automaticamente.");
+    });
+}
+
+loadProducts().catch(error => {
+  console.error(error);
+
+  document.getElementById("app").innerHTML = `
+    <main class="container">
+      <h1>Paixãobon7</h1>
+      <p>Não foi possível carregar os produtos.</p>
+      <button onclick="location.reload()">
+        Tentar novamente
+      </button>
+    </main>
+  `;
+});
