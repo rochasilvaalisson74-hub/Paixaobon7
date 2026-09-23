@@ -1,11 +1,15 @@
 const SUPABASE_URL = "https://sxkcpljlkqmnvkvebmma.supabase.co";
 const SUPABASE_KEY = "sb_publishable_7_nC0im2FRozidAwQfBoqA_esAWhSjs";
 
+const ADMIN_EMAIL = "paixaobon@gmail.com";
+const BUCKET = "produtos";
+
 const PIX_KEY = "7c868247-e256-4bab-894a-10e7a242a63a";
 const WHATSAPP = "5516981721867";
 
 let products = [];
 let cart = [];
+let adminSession = null;
 
 function money(value) {
   return Number(value).toLocaleString("pt-BR", {
@@ -13,6 +17,102 @@ function money(value) {
     currency: "BRL"
   });
 }
+
+/* =========================
+   AUTENTICAÇÃO
+========================= */
+
+async function loginAdmin() {
+  const email = document.getElementById("admin-email").value.trim();
+  const password = document.getElementById("admin-password").value;
+
+  if (!email || !password) {
+    alert("Digite o e-mail e a senha.");
+    return;
+  }
+
+  if (email.toLowerCase() !== ADMIN_EMAIL) {
+    alert("Este e-mail não tem acesso ao painel administrativo.");
+    return;
+  }
+
+  const response = await fetch(
+    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error(data);
+    alert("Não foi possível entrar. Confira o e-mail e a senha.");
+    return;
+  }
+
+  if (
+    !data.user ||
+    !data.user.email ||
+    data.user.email.toLowerCase() !== ADMIN_EMAIL
+  ) {
+    alert("Acesso administrativo não autorizado.");
+    return;
+  }
+
+  adminSession = data;
+
+  localStorage.setItem(
+    "paixaobon7_admin_session",
+    JSON.stringify(data)
+  );
+
+  alert("Login administrativo realizado!");
+
+  render();
+}
+
+function logoutAdmin() {
+  adminSession = null;
+  localStorage.removeItem("paixaobon7_admin_session");
+  render();
+}
+
+function restoreAdminSession() {
+  try {
+    const saved = localStorage.getItem(
+      "paixaobon7_admin_session"
+    );
+
+    if (!saved) return;
+
+    const session = JSON.parse(saved);
+
+    if (
+      session &&
+      session.user &&
+      session.user.email &&
+      session.user.email.toLowerCase() === ADMIN_EMAIL
+    ) {
+      adminSession = session;
+    }
+  } catch (error) {
+    console.error(error);
+    localStorage.removeItem("paixaobon7_admin_session");
+  }
+}
+
+/* =========================
+   PRODUTOS
+========================= */
 
 async function loadProducts() {
   const response = await fetch(
@@ -30,8 +130,155 @@ async function loadProducts() {
   }
 
   products = await response.json();
+
   render();
 }
+
+/* =========================
+   UPLOAD DE IMAGEM
+========================= */
+
+async function uploadProductImage() {
+  if (!adminSession || !adminSession.access_token) {
+    alert("Faça login como administrador primeiro.");
+    return;
+  }
+
+  const fileInput = document.getElementById("product-image");
+
+  if (!fileInput || !fileInput.files.length) {
+    alert("Selecione uma imagem.");
+    return;
+  }
+
+  const file = fileInput.files[0];
+
+  if (!file.type.startsWith("image/")) {
+    alert("Selecione somente uma imagem.");
+    return;
+  }
+
+  const extension =
+    file.name.split(".").pop().toLowerCase() || "jpg";
+
+  const fileName =
+    `produto-${Date.now()}.${extension}`;
+
+  const uploadResponse = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`,
+    {
+      method: "POST",
+
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${adminSession.access_token}`,
+        "Content-Type": file.type,
+        "x-upsert": "true"
+      },
+
+      body: file
+    }
+  );
+
+  if (!uploadResponse.ok) {
+    const error = await uploadResponse.text();
+
+    console.error(error);
+
+    alert(
+      "Não foi possível enviar a imagem. Verifique as políticas do bucket."
+    );
+
+    return;
+  }
+
+  const imageUrl =
+    `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+
+  const urlElement =
+    document.getElementById("uploaded-image-url");
+
+  if (urlElement) {
+    urlElement.value = imageUrl;
+  }
+
+  alert("Imagem enviada com sucesso!");
+
+  loadProducts().catch(console.error);
+}
+
+/* =========================
+   PAINEL ADMIN
+========================= */
+
+function adminPanel() {
+  if (!adminSession) {
+    return `
+      <section class="admin">
+
+        <h2>Área do administrador</h2>
+
+        <input
+          id="admin-email"
+          type="email"
+          placeholder="E-mail do administrador"
+          value="${ADMIN_EMAIL}"
+        >
+
+        <input
+          id="admin-password"
+          type="password"
+          placeholder="Senha do administrador"
+        >
+
+        <button onclick="loginAdmin()">
+          Entrar como administrador
+        </button>
+
+      </section>
+    `;
+  }
+
+  return `
+    <section class="admin">
+
+      <h2>Painel administrativo</h2>
+
+      <p>
+        Administrador:
+        <strong>${ADMIN_EMAIL}</strong>
+      </p>
+
+      <h3>Enviar foto de produto</h3>
+
+      <input
+        id="product-image"
+        type="file"
+        accept="image/*"
+      >
+
+      <button onclick="uploadProductImage()">
+        Enviar imagem
+      </button>
+
+      <input
+        id="uploaded-image-url"
+        type="text"
+        readonly
+        placeholder="URL da imagem aparecerá aqui"
+      >
+
+      <button onclick="logoutAdmin()">
+        Sair do administrador
+      </button>
+
+    </section>
+  `;
+}
+
+/* =========================
+   INTERFACE
+========================= */
 
 function render() {
   const app = document.getElementById("app");
@@ -45,6 +292,8 @@ function render() {
         <p>Uma experiência simples e profissional.</p>
       </header>
 
+      ${adminPanel()}
+
       <section>
         <h2>Produtos</h2>
 
@@ -56,7 +305,12 @@ function render() {
 
                   ${
                     product.imagem_url
-                      ? `<img src="${product.imagem_url}" alt="${product.nome}">`
+                      ? `
+                        <img
+                          src="${product.imagem_url}"
+                          alt="${product.nome}"
+                        >
+                      `
                       : ""
                   }
 
@@ -64,7 +318,9 @@ function render() {
 
                   <p>${product.descricao || ""}</p>
 
-                  <strong>${money(product.preco)}</strong>
+                  <strong>
+                    ${money(product.preco)}
+                  </strong>
 
                   <button onclick="addToCart(${product.id})">
                     Adicionar ao pedido
@@ -159,6 +415,10 @@ function render() {
   renderCart();
 }
 
+/* =========================
+   CARRINHO
+========================= */
+
 function addToCart(id) {
   const product = products.find(item => item.id === id);
 
@@ -208,6 +468,10 @@ function renderCart() {
 
   totalElement.textContent = money(total);
 }
+
+/* =========================
+   CHECKOUT
+========================= */
 
 async function checkout() {
   if (cart.length === 0) {
@@ -338,6 +602,10 @@ ${PIX_KEY}`;
   render();
 }
 
+/* =========================
+   PIX
+========================= */
+
 function copyPix() {
   navigator.clipboard
     .writeText(PIX_KEY)
@@ -348,6 +616,12 @@ function copyPix() {
       alert("Não foi possível copiar automaticamente.");
     });
 }
+
+/* =========================
+   INICIALIZAÇÃO
+========================= */
+
+restoreAdminSession();
 
 loadProducts().catch(error => {
   console.error(error);
