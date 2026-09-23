@@ -243,7 +243,7 @@ async function checkout() {
   const pedidoId = pedido[0].id;
 
   for (const product of cart) {
-    await fetch(
+    const itemResponse = await fetch(
       `${SUPABASE_URL}/rest/v1/itens_pedido`,
       {
         method: "POST",
@@ -263,6 +263,10 @@ async function checkout() {
         })
       }
     );
+
+    if (!itemResponse.ok) {
+      console.error(await itemResponse.text());
+    }
   }
 
   const items = cart
@@ -270,53 +274,3 @@ async function checkout() {
       `• ${product.nome} — ${money(product.preco)}`
     )
     .join("\n");
-
-  const message =
-`Olá! Quero fazer um pedido na Paixãobon7.
-
-Pedido: #${pedidoId}
-
-Cliente: ${nome}
-Telefone: ${telefone}
-
-${items}
-
-Total: ${money(total)}
-
-Pagamento via Pix.
-
-Chave Pix:
-${PIX_KEY}`;
-
-  const whatsappUrl =
-    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
-
-  window.open(whatsappUrl, "_blank");
-
-  cart = [];
-  render();
-}
-
-function copyPix() {
-  navigator.clipboard.writeText(PIX_KEY)
-    .then(() => {
-      alert("Chave Pix copiada!");
-    })
-    .catch(() => {
-      alert("Não foi possível copiar automaticamente.");
-    });
-}
-
-loadProducts().catch(error => {
-  console.error(error);
-
-  document.getElementById("app").innerHTML = `
-    <main class="container">
-      <h1>Paixãobon7</h1>
-      <p>Não foi possível carregar os produtos.</p>
-      <button onclick="location.reload()">
-        Tentar novamente
-      </button>
-    </main>
-  `;
-});
