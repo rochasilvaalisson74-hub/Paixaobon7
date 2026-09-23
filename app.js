@@ -32,6 +32,11 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+
+// ======================================================
+// SUPABASE API
+// ======================================================
+
 async function api(path, options = {}) {
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...options,
@@ -39,6 +44,9 @@ async function api(path, options = {}) {
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${SUPABASE_KEY}`,
       "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Accept-Profile": "public",
+      "Content-Profile": "public",
       ...(options.headers || {})
     }
   });
@@ -50,7 +58,6 @@ async function api(path, options = {}) {
 // ======================================================
 
 async function loadProducts() {
-
   const response = await api("produtos?select=*");
 
   if (!response.ok) {
@@ -64,9 +71,7 @@ async function loadProducts() {
     products.length &&
     Object.prototype.hasOwnProperty.call(products[0], "ativo")
   ) {
-    products = products.filter(
-      product => product.ativo !== false
-    );
+    products = products.filter(product => product.ativo !== false);
   }
 
   renderStore();
@@ -78,13 +83,11 @@ async function loadProducts() {
 // ======================================================
 
 function renderStore() {
-
   const app = document.getElementById("app");
 
   if (!app) return;
 
   app.innerHTML = `
-
     <main class="container">
 
       <header class="hero">
@@ -93,9 +96,7 @@ function renderStore() {
 
         <p>Produtos, cursos e soluções.</p>
 
-        <p>
-          Uma experiência simples e profissional.
-        </p>
+        <p>Uma experiência simples e profissional.</p>
 
         <div style="margin-top:15px">
 
@@ -195,7 +196,6 @@ function renderStore() {
 
         ${
           cart.length
-
             ? `
 
               <input
@@ -262,7 +262,6 @@ function renderStore() {
 // ======================================================
 
 function scrollToProducts() {
-
   document
     .getElementById("produtos")
     ?.scrollIntoView({
@@ -272,7 +271,6 @@ function scrollToProducts() {
 
 
 function addToCart(id) {
-
   const product = products.find(
     item => String(item.id) === String(id)
   );
@@ -286,7 +284,6 @@ function addToCart(id) {
 
 
 function removeFromCart(index) {
-
   cart.splice(index, 1);
 
   renderStore();
@@ -294,26 +291,16 @@ function removeFromCart(index) {
 
 
 function renderCart() {
-
-  const items =
-    document.getElementById("cart-items");
-
-  const totalElement =
-    document.getElementById("cart-total");
+  const items = document.getElementById("cart-items");
+  const totalElement = document.getElementById("cart-total");
 
   if (!items || !totalElement) return;
 
   if (!cart.length) {
-
-    items.innerHTML =
-      "<p>Seu carrinho está vazio.</p>";
-
-    totalElement.textContent =
-      money(0);
-
+    items.innerHTML = "<p>Seu carrinho está vazio.</p>";
+    totalElement.textContent = money(0);
     return;
   }
-
 
   items.innerHTML = cart
     .map((product, index) => `
@@ -337,15 +324,13 @@ function renderCart() {
     `)
     .join("");
 
-
   const total = cart.reduce(
     (sum, product) =>
       sum + Number(product.preco || 0),
     0
   );
 
-  totalElement.textContent =
-    money(total);
+  totalElement.textContent = money(total);
 }
 
 
@@ -356,12 +341,9 @@ function renderCart() {
 async function checkout() {
 
   if (!cart.length) {
-
     alert("Adicione um produto ao pedido.");
-
     return;
   }
-
 
   const nome =
     document.getElementById("cliente-nome")
@@ -392,9 +374,7 @@ async function checkout() {
     !cep
   ) {
 
-    alert(
-      "Preencha todos os dados do pedido."
-    );
+    alert("Preencha todos os dados do pedido.");
 
     return;
   }
@@ -409,9 +389,9 @@ async function checkout() {
 
   try {
 
-    // ================================================
+    // ==================================================
     // CRIAR PEDIDO
-    // ================================================
+    // ==================================================
 
     const pedidoResponse =
       await api("pedidos", {
@@ -448,7 +428,7 @@ async function checkout() {
       const error =
         await pedidoResponse.text();
 
-      console.error(error);
+      console.error("Erro pedido:", error);
 
       alert(
         "Não foi possível criar o pedido.\n\n" +
@@ -481,9 +461,9 @@ async function checkout() {
       pedido[0].id;
 
 
-    // ================================================
-    // ITENS
-    // ================================================
+    // ==================================================
+    // SALVAR ITENS
+    // ==================================================
 
     for (const product of cart) {
 
@@ -491,6 +471,10 @@ async function checkout() {
         await api("itens_pedido", {
 
           method: "POST",
+
+          headers: {
+            Prefer: "return=representation"
+          },
 
           body: JSON.stringify({
 
@@ -502,7 +486,7 @@ async function checkout() {
 
             quantidade: 1,
 
-            preco: product.preco
+            preco: Number(product.preco)
 
           })
 
@@ -511,19 +495,28 @@ async function checkout() {
 
       if (!itemResponse.ok) {
 
+        const itemError =
+          await itemResponse.text();
+
         console.error(
           "Erro ao salvar item:",
-          await itemResponse.text()
+          itemError
         );
 
+        alert(
+          "O pedido foi criado, mas houve um problema ao salvar os produtos.\n\n" +
+          itemError
+        );
+
+        return;
       }
 
     }
 
 
-    // ================================================
+    // ==================================================
     // MOSTRAR PAGAMENTO
-    // ================================================
+    // ==================================================
 
     showPaymentScreen(
       pedidoId,
@@ -538,7 +531,8 @@ async function checkout() {
     console.error(error);
 
     alert(
-      "Ocorreu um erro ao finalizar o pedido."
+      "Ocorreu um erro ao finalizar o pedido.\n\n" +
+      error.message
     );
 
   }
@@ -611,29 +605,26 @@ ${PIX_KEY}`;
           Total: ${money(total)}
         </h2>
 
-
         <hr>
 
-
         <h2>
-          Pagamento via Pix
+          💠 Pagamento via Pix
         </h2>
 
         <p>
           Copie a chave Pix abaixo:
         </p>
 
-
         <div
           class="pix-key"
           style="
             word-break:break-all;
             margin:15px 0;
+            padding:15px;
           "
         >
           ${PIX_KEY}
         </div>
-
 
         <button
           onclick="copyPix()"
@@ -641,13 +632,12 @@ ${PIX_KEY}`;
           📋 Copiar chave Pix
         </button>
 
-
         <br><br>
-
 
         <a
           href="${whatsappUrl}"
           target="_blank"
+          rel="noopener noreferrer"
           style="text-decoration:none"
         >
 
@@ -657,9 +647,7 @@ ${PIX_KEY}`;
 
         </a>
 
-
         <br><br>
-
 
         <button
           onclick="startNewOrder()"
@@ -703,9 +691,7 @@ function copyPix() {
       .writeText(PIX_KEY)
       .then(() => {
 
-        alert(
-          "Chave Pix copiada!"
-        );
+        alert("Chave Pix copiada!");
 
       })
       .catch(() => {
@@ -812,7 +798,6 @@ function renderAdmin() {
           </strong>
         </p>
 
-
         <button
           onclick="renderStore()"
         >
@@ -834,19 +819,16 @@ function renderAdmin() {
           }
         </h2>
 
-
         <input
           id="admin-nome"
           type="text"
           placeholder="Nome do produto"
         >
 
-
         <textarea
           id="admin-descricao"
           placeholder="Descrição"
         ></textarea>
-
 
         <input
           id="admin-preco"
@@ -855,11 +837,9 @@ function renderAdmin() {
           placeholder="Preço"
         >
 
-
         <p>
           Foto do produto:
         </p>
-
 
         <input
           id="admin-imagem"
@@ -867,9 +847,7 @@ function renderAdmin() {
           accept="image/*"
         >
 
-
         <br><br>
-
 
         <button
           onclick="saveProduct()"
@@ -881,10 +859,8 @@ function renderAdmin() {
           }
         </button>
 
-
         ${
           editingProductId
-
             ? `
               <button
                 onclick="cancelEdit()"
@@ -892,21 +868,19 @@ function renderAdmin() {
                 Cancelar
               </button>
             `
-
             : ""
         }
 
       </section>
 
 
-      <!-- LISTA -->
+      <!-- LISTA DE PRODUTOS -->
 
       <section>
 
         <h2>
           Produtos cadastrados
         </h2>
-
 
         ${
           products.length
@@ -934,7 +908,6 @@ function renderAdmin() {
                       : ""
                   }
 
-
                   <div>
 
                     <strong>
@@ -947,7 +920,6 @@ function renderAdmin() {
 
                   </div>
 
-
                   <div>
 
                     <button
@@ -955,7 +927,6 @@ function renderAdmin() {
                     >
                       ✏️ Editar
                     </button>
-
 
                     <button
                       onclick="deleteProduct('${product.id}')"
@@ -987,13 +958,11 @@ function renderAdmin() {
           📦 Pedidos
         </h2>
 
-
         <button
           onclick="loadAdminOrders()"
         >
           Atualizar pedidos
         </button>
-
 
         <div
           id="admin-orders"
@@ -1044,18 +1013,15 @@ async function saveProduct() {
     document.getElementById("admin-nome")
       ?.value.trim();
 
-
   const descricao =
     document.getElementById("admin-descricao")
       ?.value.trim();
-
 
   const preco =
     Number(
       document.getElementById("admin-preco")
         ?.value
     );
-
 
   const file =
     document.getElementById("admin-imagem")
@@ -1064,9 +1030,7 @@ async function saveProduct() {
 
   if (!nome) {
 
-    alert(
-      "Digite o nome do produto."
-    );
+    alert("Digite o nome do produto.");
 
     return;
   }
@@ -1074,9 +1038,7 @@ async function saveProduct() {
 
   if (!preco || preco <= 0) {
 
-    alert(
-      "Digite um preço válido."
-    );
+    alert("Digite um preço válido.");
 
     return;
   }
@@ -1087,14 +1049,18 @@ async function saveProduct() {
     let imagemUrl = null;
 
 
-    // ================================================
-    // UPLOAD
-    // ================================================
+    // ==================================================
+    // UPLOAD DA IMAGEM
+    // ==================================================
 
     if (file) {
 
+      const safeName =
+        file.name
+          .replace(/[^a-zA-Z0-9._-]/g, "-");
+
       const fileName =
-        `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+        `${Date.now()}-${safeName}`;
 
 
       const upload =
@@ -1136,9 +1102,9 @@ async function saveProduct() {
     }
 
 
-    // ================================================
-    // EDITAR
-    // ================================================
+    // ==================================================
+    // EDITAR PRODUTO
+    // ==================================================
 
     if (editingProductId) {
 
@@ -1150,8 +1116,7 @@ async function saveProduct() {
 
 
       if (imagemUrl) {
-        body.imagem_url =
-          imagemUrl;
+        body.imagem_url = imagemUrl;
       }
 
 
@@ -1193,9 +1158,9 @@ async function saveProduct() {
     }
 
 
-    // ================================================
-    // NOVO
-    // ================================================
+    // ==================================================
+    // NOVO PRODUTO
+    // ==================================================
 
     else {
 
@@ -1272,7 +1237,8 @@ async function saveProduct() {
     console.error(error);
 
     alert(
-      "Erro ao salvar produto."
+      "Erro ao salvar produto:\n\n" +
+      error.message
     );
 
   }
@@ -1280,7 +1246,7 @@ async function saveProduct() {
 
 
 // ======================================================
-// EDITAR
+// EDITAR PRODUTO
 // ======================================================
 
 function editProduct(id) {
@@ -1304,22 +1270,27 @@ function editProduct(id) {
 
   setTimeout(() => {
 
-    document.getElementById(
-      "admin-nome"
-    ).value =
-      product.nome || "";
+    const nome =
+      document.getElementById("admin-nome");
+
+    const descricao =
+      document.getElementById("admin-descricao");
+
+    const preco =
+      document.getElementById("admin-preco");
 
 
-    document.getElementById(
-      "admin-descricao"
-    ).value =
-      product.descricao || "";
+    if (nome) {
+      nome.value = product.nome || "";
+    }
 
+    if (descricao) {
+      descricao.value = product.descricao || "";
+    }
 
-    document.getElementById(
-      "admin-preco"
-    ).value =
-      product.preco || "";
+    if (preco) {
+      preco.value = product.preco || "";
+    }
 
   }, 50);
 
@@ -1327,7 +1298,7 @@ function editProduct(id) {
 
 
 // ======================================================
-// CANCELAR
+// CANCELAR EDIÇÃO
 // ======================================================
 
 function cancelEdit() {
@@ -1340,7 +1311,7 @@ function cancelEdit() {
 
 
 // ======================================================
-// EXCLUIR
+// EXCLUIR PRODUTO
 // ======================================================
 
 async function deleteProduct(id) {
@@ -1515,7 +1486,7 @@ async function loadAdminOrders() {
 
 
 // ======================================================
-// INICIAR
+// INICIAR SITE
 // ======================================================
 
 loadProducts().catch(error => {
