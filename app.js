@@ -174,4 +174,226 @@ function removeFromCart(index) {
 }
 
 function renderCart() {
- 
+  const items = document.getElementById("cart-items");
+  const totalElement = document.getElementById("cart-total");
+
+  if (!items || !totalElement) return;
+
+  if (cart.length === 0) {
+    items.innerHTML = "<p>Seu carrinho está vazio.</p>";
+    totalElement.textContent = money(0);
+    return;
+  }
+
+  items.innerHTML = cart
+    .map((product, index) => `
+      <div class="cart-item">
+        <span>
+          ${product.nome} — ${money(product.preco)}
+        </span>
+
+        <button onclick="removeFromCart(${index})">
+          Remover
+        </button>
+      </div>
+    `)
+    .join("");
+
+  const total = cart.reduce(
+    (sum, product) => sum + Number(product.preco),
+    0
+  );
+
+  totalElement.textContent = money(total);
+}
+
+async function checkout() {
+  if (cart.length === 0) {
+    alert("Adicione um produto ao pedido.");
+    return;
+  }
+
+  const nome = document
+    .getElementById("cliente-nome")
+    .value
+    .trim();
+
+  const telefone = document
+    .getElementById("cliente-telefone")
+    .value
+    .trim();
+
+  const endereco = document
+    .getElementById("cliente-endereco")
+    .value
+    .trim();
+
+  const cidade = document
+    .getElementById("cliente-cidade")
+    .value
+    .trim();
+
+  const cep = document
+    .getElementById("cliente-cep")
+    .value
+    .trim();
+
+  if (!nome || !telefone || !endereco || !cidade || !cep) {
+    alert("Preencha todos os dados do pedido.");
+    return;
+  }
+
+  const total = cart.reduce(
+    (sum, product) => sum + Number(product.preco),
+    0
+  );
+
+  try {
+    const pedidoResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/pedidos`,
+      {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify({
+          nome_cliente: nome,
+          whatsapp: telefone,
+          endereco: endereco,
+          cidade: cidade,
+          cep: cep,
+          valor_total: total,
+          status: "aguardando_pagamento"
+        })
+      }
+    );
+
+    if (!pedidoResponse.ok) {
+      const error = await pedidoResponse.text();
+
+      console.error("Erro ao criar pedido:", error);
+
+      alert(
+        "Não foi possível criar o pedido.\n\n" +
+        "Erro: " + error
+      );
+
+      return;
+    }
+
+    const pedido = await pedidoResponse.json();
+
+    if (!pedido || !pedido[0] || !pedido[0].id) {
+      alert(
+        "O pedido foi processado, mas não foi possível obter o número do pedido."
+      );
+      return;
+    }
+
+    const pedidoId = pedido[0].id;
+
+    for (const product of cart) {
+      const itemResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/itens_pedido`,
+        {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            pedido_id: pedidoId,
+            produto_id: product.id,
+            nome_produto: product.nome,
+            quantidade: 1,
+            preco: product.preco
+          })
+        }
+      );
+
+      if (!itemResponse.ok) {
+        const itemError = await itemResponse.text();
+
+        console.error(
+          "Erro ao salvar item:",
+          itemError
+        );
+      }
+    }
+
+    const items = cart
+      .map(product =>
+        `• ${product.nome} — ${money(product.preco)}`
+      )
+      .join("\n");
+
+    const message =
+`Olá! Quero fazer um pedido na Paixãobon7.
+
+Pedido: #${pedidoId}
+
+Cliente: ${nome}
+Telefone: ${telefone}
+
+${items}
+
+Total: ${money(total)}
+
+Pagamento via Pix.
+
+Chave Pix:
+${PIX_KEY}`;
+
+    const whatsappUrl =
+      `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, "_blank");
+
+    cart = [];
+    render();
+
+  } catch (error) {
+    console.error("Erro no checkout:", error);
+
+    alert(
+      "Ocorreu um erro ao finalizar o pedido."
+    );
+  }
+}
+
+function copyPix() {
+  navigator.clipboard
+    .writeText(PIX_KEY)
+    .then(() => {
+      alert("Chave Pix copiada!");
+    })
+    .catch(() => {
+      alert("Não foi possível copiar automaticamente.");
+    });
+}
+
+loadProducts().catch(error => {
+  console.error(error);
+
+  const app = document.getElementById("app");
+
+  if (app) {
+    app.innerHTML = `
+      <main class="container">
+        <h1>Paixãobon7</h1>
+
+        <p>
+          Não foi possível carregar os produtos.
+        </p>
+
+        <button onclick="location.reload()">
+          Tentar novamente
+        </button>
+      </main>
+    `;
+  }
+});
