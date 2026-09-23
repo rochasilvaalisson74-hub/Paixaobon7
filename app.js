@@ -2,15 +2,13 @@ const SUPABASE_URL = "https://sxkcpljlkqmnvkvebmma.supabase.co";
 const SUPABASE_KEY = "sb_publishable_7_nC0im2FRozidAwQfBoqA_esAWhSjs";
 
 const ADMIN_EMAIL = "paixaobon@gmail.com";
+const BUCKET = "produtos";
 
 const PIX_KEY = "7c868247-e256-4bab-894a-10e7a242a63a";
 const WHATSAPP = "5516981721867";
 
-const BUCKET = "produtos";
-
 let products = [];
 let cart = [];
-let isAdmin = false;
 let editingProductId = null;
 
 
@@ -34,26 +32,16 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-
-// ======================================================
-// SUPABASE
-// ======================================================
-
-async function supabaseFetch(path, options = {}) {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${path}`,
-    {
-      ...options,
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      }
+async function api(path, options = {}) {
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {})
     }
-  );
-
-  return response;
+  });
 }
 
 
@@ -63,25 +51,15 @@ async function supabaseFetch(path, options = {}) {
 
 async function loadProducts() {
 
-  const response = await supabaseFetch(
-    "produtos?select=*"
-  );
+  const response = await api("produtos?select=*");
 
   if (!response.ok) {
-
     const error = await response.text();
-
-    console.error("Erro ao carregar produtos:", error);
-
     throw new Error(error);
   }
 
   products = await response.json();
 
-  /*
-   * Se existir a coluna ativo, mostramos somente
-   * produtos ativos.
-   */
   if (
     products.length &&
     Object.prototype.hasOwnProperty.call(products[0], "ativo")
@@ -91,15 +69,15 @@ async function loadProducts() {
     );
   }
 
-  render();
+  renderStore();
 }
 
 
 // ======================================================
-// RENDER PRINCIPAL
+// LOJA
 // ======================================================
 
-function render() {
+function renderStore() {
 
   const app = document.getElementById("app");
 
@@ -113,9 +91,7 @@ function render() {
 
         <h1>Paixãobon7</h1>
 
-        <p>
-          Produtos, cursos e soluções.
-        </p>
+        <p>Produtos, cursos e soluções.</p>
 
         <p>
           Uma experiência simples e profissional.
@@ -140,7 +116,7 @@ function render() {
       </header>
 
 
-      <!-- ================= PRODUTOS ================= -->
+      <!-- PRODUTOS -->
 
       <section id="produtos">
 
@@ -153,44 +129,42 @@ function render() {
 
               ? products.map(product => `
 
-                <article class="product">
+                  <article class="product">
 
-                  ${
-                    product.imagem_url
+                    ${
+                      product.imagem_url
+                        ? `
+                          <img
+                            src="${escapeHtml(product.imagem_url)}"
+                            alt="${escapeHtml(product.nome)}"
+                          >
+                        `
+                        : ""
+                    }
 
-                      ? `
-                        <img
-                          src="${escapeHtml(product.imagem_url)}"
-                          alt="${escapeHtml(product.nome)}"
-                        >
-                      `
+                    <h3>
+                      ${escapeHtml(product.nome)}
+                    </h3>
 
-                      : ""
-                  }
+                    <p>
+                      ${escapeHtml(product.descricao || "")}
+                    </p>
 
-                  <h3>
-                    ${escapeHtml(product.nome)}
-                  </h3>
+                    <strong>
+                      ${money(product.preco)}
+                    </strong>
 
-                  <p>
-                    ${escapeHtml(product.descricao || "")}
-                  </p>
+                    <br><br>
 
-                  <strong>
-                    ${money(product.preco)}
-                  </strong>
+                    <button
+                      onclick="addToCart('${product.id}')"
+                    >
+                      Adicionar ao pedido
+                    </button>
 
-                  <br><br>
+                  </article>
 
-                  <button
-                    onclick="addToCart('${product.id}')"
-                  >
-                    Adicionar ao pedido
-                  </button>
-
-                </article>
-
-              `).join("")
+                `).join("")
 
               : `
                 <p>
@@ -204,13 +178,11 @@ function render() {
       </section>
 
 
-      <!-- ================= CARRINHO ================= -->
+      <!-- CARRINHO -->
 
       <section class="cart">
 
-        <h2>
-          Seu pedido
-        </h2>
+        <h2>Seu pedido</h2>
 
         <div id="cart-items"></div>
 
@@ -264,32 +236,8 @@ function render() {
               </button>
 
             `
-
             : ""
         }
-
-      </section>
-
-
-      <!-- ================= PIX ================= -->
-
-      <section class="pix">
-
-        <h2>
-          Pagamento via Pix
-        </h2>
-
-        <p>
-          Chave Pix:
-        </p>
-
-        <div class="pix-key">
-          ${PIX_KEY}
-        </div>
-
-        <button onclick="copyPix()">
-          Copiar chave Pix
-        </button>
 
       </section>
 
@@ -303,7 +251,6 @@ function render() {
       </footer>
 
     </main>
-
   `;
 
   renderCart();
@@ -311,18 +258,16 @@ function render() {
 
 
 // ======================================================
-// PRODUTOS / CARRINHO
+// CARRINHO
 // ======================================================
 
 function scrollToProducts() {
 
-  const element = document.getElementById("produtos");
-
-  if (element) {
-    element.scrollIntoView({
+  document
+    .getElementById("produtos")
+    ?.scrollIntoView({
       behavior: "smooth"
     });
-  }
 }
 
 
@@ -332,14 +277,11 @@ function addToCart(id) {
     item => String(item.id) === String(id)
   );
 
-  if (!product) {
-    alert("Produto não encontrado.");
-    return;
-  }
+  if (!product) return;
 
   cart.push(product);
 
-  render();
+  renderStore();
 }
 
 
@@ -347,7 +289,7 @@ function removeFromCart(index) {
 
   cart.splice(index, 1);
 
-  render();
+  renderStore();
 }
 
 
@@ -359,11 +301,9 @@ function renderCart() {
   const totalElement =
     document.getElementById("cart-total");
 
-  if (!items || !totalElement) {
-    return;
-  }
+  if (!items || !totalElement) return;
 
-  if (cart.length === 0) {
+  if (!cart.length) {
 
     items.innerHTML =
       "<p>Seu carrinho está vazio.</p>";
@@ -398,13 +338,11 @@ function renderCart() {
     .join("");
 
 
-  const total =
-    cart.reduce(
-      (sum, product) =>
-        sum + Number(product.preco || 0),
-      0
-    );
-
+  const total = cart.reduce(
+    (sum, product) =>
+      sum + Number(product.preco || 0),
+    0
+  );
 
   totalElement.textContent =
     money(total);
@@ -417,49 +355,33 @@ function renderCart() {
 
 async function checkout() {
 
-  if (cart.length === 0) {
+  if (!cart.length) {
 
-    alert(
-      "Adicione um produto ao pedido."
-    );
+    alert("Adicione um produto ao pedido.");
 
     return;
   }
 
 
   const nome =
-    document
-      .getElementById("cliente-nome")
-      ?.value
-      .trim();
-
+    document.getElementById("cliente-nome")
+      ?.value.trim();
 
   const telefone =
-    document
-      .getElementById("cliente-telefone")
-      ?.value
-      .trim();
-
+    document.getElementById("cliente-telefone")
+      ?.value.trim();
 
   const endereco =
-    document
-      .getElementById("cliente-endereco")
-      ?.value
-      .trim();
-
+    document.getElementById("cliente-endereco")
+      ?.value.trim();
 
   const cidade =
-    document
-      .getElementById("cliente-cidade")
-      ?.value
-      .trim();
-
+    document.getElementById("cliente-cidade")
+      ?.value.trim();
 
   const cep =
-    document
-      .getElementById("cliente-cep")
-      ?.value
-      .trim();
+    document.getElementById("cliente-cep")
+      ?.value.trim();
 
 
   if (
@@ -478,53 +400,47 @@ async function checkout() {
   }
 
 
-  const total =
-    cart.reduce(
-      (sum, product) =>
-        sum + Number(product.preco || 0),
-      0
-    );
+  const total = cart.reduce(
+    (sum, product) =>
+      sum + Number(product.preco || 0),
+    0
+  );
 
 
   try {
 
+    // ================================================
+    // CRIAR PEDIDO
+    // ================================================
+
     const pedidoResponse =
-      await supabaseFetch(
-        "pedidos",
-        {
-          method: "POST",
+      await api("pedidos", {
 
-          headers: {
-            Prefer:
-              "return=representation"
-          },
+        method: "POST",
 
-          body: JSON.stringify({
+        headers: {
+          Prefer: "return=representation"
+        },
 
-            nome_cliente:
-              nome,
+        body: JSON.stringify({
 
-            whatsapp:
-              telefone,
+          nome_cliente: nome,
 
-            endereco:
-              endereco,
+          whatsapp: telefone,
 
-            cidade:
-              cidade,
+          endereco: endereco,
 
-            cep:
-              cep,
+          cidade: cidade,
 
-            valor_total:
-              total,
+          cep: cep,
 
-            status:
-              "aguardando_pagamento"
+          valor_total: total,
 
-          })
-        }
-      );
+          status: "aguardando_pagamento"
+
+        })
+
+      });
 
 
     if (!pedidoResponse.ok) {
@@ -532,10 +448,7 @@ async function checkout() {
       const error =
         await pedidoResponse.text();
 
-      console.error(
-        "Erro ao criar pedido:",
-        error
-      );
+      console.error(error);
 
       alert(
         "Não foi possível criar o pedido.\n\n" +
@@ -568,48 +481,39 @@ async function checkout() {
       pedido[0].id;
 
 
-    // ==================================================
-    // SALVAR ITENS
-    // ==================================================
+    // ================================================
+    // ITENS
+    // ================================================
 
     for (const product of cart) {
 
       const itemResponse =
-        await supabaseFetch(
-          "itens_pedido",
-          {
-            method: "POST",
+        await api("itens_pedido", {
 
-            body: JSON.stringify({
+          method: "POST",
 
-              pedido_id:
-                pedidoId,
+          body: JSON.stringify({
 
-              produto_id:
-                product.id,
+            pedido_id: pedidoId,
 
-              nome_produto:
-                product.nome,
+            produto_id: product.id,
 
-              quantidade:
-                1,
+            nome_produto: product.nome,
 
-              preco:
-                product.preco
+            quantidade: 1,
 
-            })
-          }
-        );
+            preco: product.preco
+
+          })
+
+        });
 
 
       if (!itemResponse.ok) {
 
-        const error =
-          await itemResponse.text();
-
         console.error(
           "Erro ao salvar item:",
-          error
+          await itemResponse.text()
         );
 
       }
@@ -617,28 +521,54 @@ async function checkout() {
     }
 
 
-    // ==================================================
-    // WHATSAPP
-    // ==================================================
+    // ================================================
+    // MOSTRAR PAGAMENTO
+    // ================================================
 
-    const items =
-      cart
-        .map(
-          product =>
-            `• ${product.nome} — ${money(product.preco)}`
-        )
-        .join("\n");
+    showPaymentScreen(
+      pedidoId,
+      nome,
+      total,
+      telefone
+    );
 
 
-    const message =
-`Olá! Quero fazer um pedido na Paixãobon7.
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Ocorreu um erro ao finalizar o pedido."
+    );
+
+  }
+}
+
+
+// ======================================================
+// TELA DE PAGAMENTO
+// ======================================================
+
+function showPaymentScreen(
+  pedidoId,
+  nome,
+  total,
+  telefone
+) {
+
+  const app =
+    document.getElementById("app");
+
+  if (!app) return;
+
+
+  const message =
+`Olá! Quero pagar meu pedido na Paixãobon7.
 
 Pedido: #${pedidoId}
 
 Cliente: ${nome}
 Telefone: ${telefone}
-
-${items}
 
 Total: ${money(total)}
 
@@ -648,33 +578,112 @@ Chave Pix:
 ${PIX_KEY}`;
 
 
-    const whatsappUrl =
-      `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+  const whatsappUrl =
+    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
 
 
-    window.open(
-      whatsappUrl,
-      "_blank"
-    );
+  app.innerHTML = `
+
+    <main class="container">
+
+      <section
+        class="pix"
+        style="text-align:center"
+      >
+
+        <h1>
+          ✅ Pedido realizado!
+        </h1>
+
+        <h2>
+          Pedido #${escapeHtml(pedidoId)}
+        </h2>
+
+        <p>
+          Olá, ${escapeHtml(nome)}!
+        </p>
+
+        <p>
+          Seu pedido foi registrado com sucesso.
+        </p>
+
+        <h2>
+          Total: ${money(total)}
+        </h2>
 
 
-    cart = [];
-
-    render();
+        <hr>
 
 
-  } catch (error) {
+        <h2>
+          Pagamento via Pix
+        </h2>
 
-    console.error(
-      "Erro no checkout:",
-      error
-    );
+        <p>
+          Copie a chave Pix abaixo:
+        </p>
 
-    alert(
-      "Ocorreu um erro ao finalizar o pedido."
-    );
 
-  }
+        <div
+          class="pix-key"
+          style="
+            word-break:break-all;
+            margin:15px 0;
+          "
+        >
+          ${PIX_KEY}
+        </div>
+
+
+        <button
+          onclick="copyPix()"
+        >
+          📋 Copiar chave Pix
+        </button>
+
+
+        <br><br>
+
+
+        <a
+          href="${whatsappUrl}"
+          target="_blank"
+          style="text-decoration:none"
+        >
+
+          <button>
+            📲 Falar no WhatsApp
+          </button>
+
+        </a>
+
+
+        <br><br>
+
+
+        <button
+          onclick="startNewOrder()"
+        >
+          Voltar para a loja
+        </button>
+
+      </section>
+
+    </main>
+
+  `;
+}
+
+
+// ======================================================
+// NOVO PEDIDO
+// ======================================================
+
+function startNewOrder() {
+
+  cart = [];
+
+  renderStore();
 
 }
 
@@ -692,7 +701,6 @@ function copyPix() {
 
     navigator.clipboard
       .writeText(PIX_KEY)
-
       .then(() => {
 
         alert(
@@ -700,11 +708,11 @@ function copyPix() {
         );
 
       })
-
       .catch(() => {
 
         alert(
-          "Não foi possível copiar automaticamente."
+          "Copie manualmente:\n\n" +
+          PIX_KEY
         );
 
       });
@@ -712,7 +720,7 @@ function copyPix() {
   } else {
 
     alert(
-      "Copie a chave Pix manualmente:\n\n" +
+      "Chave Pix:\n\n" +
       PIX_KEY
     );
 
@@ -740,7 +748,7 @@ function openWhatsApp() {
 
 
 // ======================================================
-// PAINEL ADMINISTRATIVO
+// ADMIN
 // ======================================================
 
 function openAdmin() {
@@ -749,6 +757,7 @@ function openAdmin() {
     prompt(
       "Digite o e-mail do administrador:"
     );
+
 
   if (!email) return;
 
@@ -766,18 +775,13 @@ function openAdmin() {
   }
 
 
-  /*
-   * Aqui não colocamos senha no código.
-   * O administrador é direcionado para a área
-   * administrativa depois da confirmação do e-mail.
-   */
-
-  isAdmin = true;
-
   renderAdmin();
-
 }
 
+
+// ======================================================
+// PAINEL ADMIN
+// ======================================================
 
 function renderAdmin() {
 
@@ -789,7 +793,7 @@ function renderAdmin() {
 
   app.innerHTML = `
 
-    <main class="container admin-panel">
+    <main class="container">
 
       <header class="hero">
 
@@ -797,9 +801,9 @@ function renderAdmin() {
           Paixãobon7
         </h1>
 
-        <p>
+        <h2>
           Painel administrativo
-        </p>
+        </h2>
 
         <p>
           Administrador:
@@ -808,8 +812,9 @@ function renderAdmin() {
           </strong>
         </p>
 
+
         <button
-          onclick="render()"
+          onclick="renderStore()"
         >
           Voltar para loja
         </button>
@@ -817,9 +822,7 @@ function renderAdmin() {
       </header>
 
 
-      <!-- ========================================= -->
-      <!-- ADICIONAR / EDITAR PRODUTO -->
-      <!-- ========================================= -->
+      <!-- FORMULÁRIO -->
 
       <section>
 
@@ -841,7 +844,7 @@ function renderAdmin() {
 
         <textarea
           id="admin-descricao"
-          placeholder="Descrição do produto"
+          placeholder="Descrição"
         ></textarea>
 
 
@@ -853,11 +856,19 @@ function renderAdmin() {
         >
 
 
+        <p>
+          Foto do produto:
+        </p>
+
+
         <input
           id="admin-imagem"
           type="file"
           accept="image/*"
         >
+
+
+        <br><br>
 
 
         <button
@@ -878,7 +889,7 @@ function renderAdmin() {
               <button
                 onclick="cancelEdit()"
               >
-                Cancelar edição
+                Cancelar
               </button>
             `
 
@@ -888,85 +899,94 @@ function renderAdmin() {
       </section>
 
 
-      <!-- ========================================= -->
-      <!-- PRODUTOS ADMIN -->
-      <!-- ========================================= -->
+      <!-- LISTA -->
 
       <section>
 
         <h2>
-          Produtos
+          Produtos cadastrados
         </h2>
 
 
-        <div>
+        ${
+          products.length
 
-          ${
-            products.length
+            ? products.map(product => `
 
-              ? products
-                  .map(product => `
+                <div
+                  class="cart-item"
+                  style="margin-bottom:15px"
+                >
 
-                    <div
-                      class="cart-item"
-                      style="margin-bottom:10px"
+                  ${
+                    product.imagem_url
+                      ? `
+                        <img
+                          src="${escapeHtml(product.imagem_url)}"
+                          style="
+                            width:70px;
+                            height:70px;
+                            object-fit:cover;
+                            border-radius:8px;
+                          "
+                        >
+                      `
+                      : ""
+                  }
+
+
+                  <div>
+
+                    <strong>
+                      ${escapeHtml(product.nome)}
+                    </strong>
+
+                    <br>
+
+                    ${money(product.preco)}
+
+                  </div>
+
+
+                  <div>
+
+                    <button
+                      onclick="editProduct('${product.id}')"
                     >
-
-                      <span>
-
-                        <strong>
-                          ${escapeHtml(product.nome)}
-                        </strong>
-
-                        —
-                        ${money(product.preco)}
-
-                      </span>
+                      ✏️ Editar
+                    </button>
 
 
-                      <div>
+                    <button
+                      onclick="deleteProduct('${product.id}')"
+                    >
+                      🗑️ Excluir
+                    </button>
 
-                        <button
-                          onclick="editProduct('${product.id}')"
-                        >
-                          Editar
-                        </button>
+                  </div>
 
+                </div>
 
-                        <button
-                          onclick="deleteProduct('${product.id}')"
-                        >
-                          Excluir
-                        </button>
+              `).join("")
 
-                      </div>
-
-                    </div>
-
-                  `)
-                  .join("")
-
-              : `
-                <p>
-                  Nenhum produto cadastrado.
-                </p>
-              `
-          }
-
-        </div>
+            : `
+              <p>
+                Nenhum produto cadastrado.
+              </p>
+            `
+        }
 
       </section>
 
 
-      <!-- ========================================= -->
       <!-- PEDIDOS -->
-      <!-- ========================================= -->
 
       <section>
 
         <h2>
-          Pedidos
+          📦 Pedidos
         </h2>
+
 
         <button
           onclick="loadAdminOrders()"
@@ -974,19 +994,18 @@ function renderAdmin() {
           Atualizar pedidos
         </button>
 
+
         <div
           id="admin-orders"
-          style="margin-top:15px"
+          style="margin-top:20px"
         >
-          Clique em "Atualizar pedidos".
+          Nenhum pedido carregado.
         </div>
 
       </section>
 
 
-      <!-- ========================================= -->
       <!-- CONFIGURAÇÕES -->
-      <!-- ========================================= -->
 
       <section>
 
@@ -995,32 +1014,23 @@ function renderAdmin() {
         </h2>
 
         <p>
-          <strong>Pix:</strong>
-          ${PIX_KEY}
+          Chave Pix:
         </p>
 
+        <div class="pix-key">
+          ${PIX_KEY}
+        </div>
+
         <p>
-          <strong>WhatsApp:</strong>
+          WhatsApp:
           +55 16 98172-1867
         </p>
 
       </section>
 
-
-      <footer>
-
-        <button
-          onclick="logoutAdmin()"
-        >
-          Sair do administrador
-        </button>
-
-      </footer>
-
     </main>
 
   `;
-
 }
 
 
@@ -1031,30 +1041,24 @@ function renderAdmin() {
 async function saveProduct() {
 
   const nome =
-    document
-      .getElementById("admin-nome")
-      ?.value
-      .trim();
+    document.getElementById("admin-nome")
+      ?.value.trim();
 
 
   const descricao =
-    document
-      .getElementById("admin-descricao")
-      ?.value
-      .trim();
+    document.getElementById("admin-descricao")
+      ?.value.trim();
 
 
   const preco =
     Number(
-      document
-        .getElementById("admin-preco")
+      document.getElementById("admin-preco")
         ?.value
     );
 
 
   const file =
-    document
-      .getElementById("admin-imagem")
+    document.getElementById("admin-imagem")
       ?.files?.[0];
 
 
@@ -1084,7 +1088,7 @@ async function saveProduct() {
 
 
     // ================================================
-    // UPLOAD DA IMAGEM
+    // UPLOAD
     // ================================================
 
     if (file) {
@@ -1093,7 +1097,7 @@ async function saveProduct() {
         `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
 
 
-      const uploadResponse =
+      const upload =
         await fetch(
           `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`,
           {
@@ -1112,18 +1116,13 @@ async function saveProduct() {
         );
 
 
-      if (!uploadResponse.ok) {
+      if (!upload.ok) {
 
         const error =
-          await uploadResponse.text();
-
-        console.error(
-          "Erro no upload:",
-          error
-        );
+          await upload.text();
 
         alert(
-          "Não foi possível enviar a imagem.\n\n" +
+          "Erro ao enviar imagem:\n\n" +
           error
         );
 
@@ -1151,12 +1150,13 @@ async function saveProduct() {
 
 
       if (imagemUrl) {
-        body.imagem_url = imagemUrl;
+        body.imagem_url =
+          imagemUrl;
       }
 
 
       const response =
-        await supabaseFetch(
+        await api(
           `produtos?id=eq.${editingProductId}`,
           {
             method: "PATCH",
@@ -1174,12 +1174,9 @@ async function saveProduct() {
 
       if (!response.ok) {
 
-        const error =
-          await response.text();
-
         alert(
           "Erro ao editar produto:\n\n" +
-          error
+          await response.text()
         );
 
         return;
@@ -1195,8 +1192,9 @@ async function saveProduct() {
 
     }
 
+
     // ================================================
-    // NOVO PRODUTO
+    // NOVO
     // ================================================
 
     else {
@@ -1207,12 +1205,6 @@ async function saveProduct() {
         preco
       };
 
-
-      /*
-       * Só adicionamos ativo se a tabela tiver
-       * essa coluna. Caso a tabela não tenha,
-       * fazemos primeiro uma tentativa simples.
-       */
 
       if (
         products.length &&
@@ -1228,12 +1220,15 @@ async function saveProduct() {
 
 
       if (imagemUrl) {
-        body.imagem_url = imagemUrl;
+
+        body.imagem_url =
+          imagemUrl;
+
       }
 
 
       const response =
-        await supabaseFetch(
+        await api(
           "produtos",
           {
             method: "POST",
@@ -1251,12 +1246,9 @@ async function saveProduct() {
 
       if (!response.ok) {
 
-        const error =
-          await response.text();
-
         alert(
           "Erro ao adicionar produto:\n\n" +
-          error
+          await response.text()
         );
 
         return;
@@ -1280,16 +1272,15 @@ async function saveProduct() {
     console.error(error);
 
     alert(
-      "Ocorreu um erro ao salvar o produto."
+      "Erro ao salvar produto."
     );
 
   }
-
 }
 
 
 // ======================================================
-// EDITAR PRODUTO
+// EDITAR
 // ======================================================
 
 function editProduct(id) {
@@ -1301,14 +1292,7 @@ function editProduct(id) {
     );
 
 
-  if (!product) {
-
-    alert(
-      "Produto não encontrado."
-    );
-
-    return;
-  }
+  if (!product) return;
 
 
   editingProductId =
@@ -1320,38 +1304,22 @@ function editProduct(id) {
 
   setTimeout(() => {
 
-    const nome =
-      document.getElementById(
-        "admin-nome"
-      );
-
-    const descricao =
-      document.getElementById(
-        "admin-descricao"
-      );
-
-    const preco =
-      document.getElementById(
-        "admin-preco"
-      );
+    document.getElementById(
+      "admin-nome"
+    ).value =
+      product.nome || "";
 
 
-    if (nome) {
-      nome.value =
-        product.nome || "";
-    }
+    document.getElementById(
+      "admin-descricao"
+    ).value =
+      product.descricao || "";
 
 
-    if (descricao) {
-      descricao.value =
-        product.descricao || "";
-    }
-
-
-    if (preco) {
-      preco.value =
-        product.preco || "";
-    }
+    document.getElementById(
+      "admin-preco"
+    ).value =
+      product.preco || "";
 
   }, 50);
 
@@ -1359,7 +1327,7 @@ function editProduct(id) {
 
 
 // ======================================================
-// CANCELAR EDIÇÃO
+// CANCELAR
 // ======================================================
 
 function cancelEdit() {
@@ -1372,7 +1340,7 @@ function cancelEdit() {
 
 
 // ======================================================
-// EXCLUIR PRODUTO
+// EXCLUIR
 // ======================================================
 
 async function deleteProduct(id) {
@@ -1387,225 +1355,172 @@ async function deleteProduct(id) {
   if (!product) return;
 
 
-  const confirmed =
-    confirm(
-      `Excluir o produto "${product.nome}"?`
-    );
+  if (
+    !confirm(
+      `Excluir "${product.nome}"?`
+    )
+  ) {
 
-
-  if (!confirmed) return;
-
-
-  try {
-
-    const response =
-      await supabaseFetch(
-        `produtos?id=eq.${id}`,
-        {
-          method: "DELETE"
-        }
-      );
-
-
-    if (!response.ok) {
-
-      const error =
-        await response.text();
-
-      alert(
-        "Erro ao excluir produto:\n\n" +
-        error
-      );
-
-      return;
-    }
-
-
-    alert(
-      "Produto excluído!"
-    );
-
-
-    await loadProducts();
-
-    renderAdmin();
-
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "Ocorreu um erro ao excluir o produto."
-    );
-
+    return;
   }
 
+
+  const response =
+    await api(
+      `produtos?id=eq.${id}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+
+  if (!response.ok) {
+
+    alert(
+      "Erro ao excluir produto:\n\n" +
+      await response.text()
+    );
+
+    return;
+  }
+
+
+  alert(
+    "Produto excluído!"
+  );
+
+
+  await loadProducts();
+
+  renderAdmin();
 }
 
 
 // ======================================================
-// PEDIDOS DO ADMIN
+// PEDIDOS ADMIN
 // ======================================================
 
 async function loadAdminOrders() {
 
-  const container =
+  const box =
     document.getElementById(
       "admin-orders"
     );
 
 
-  if (!container) return;
+  if (!box) return;
 
 
-  container.innerHTML =
+  box.innerHTML =
     "Carregando pedidos...";
 
 
-  try {
-
-    const response =
-      await supabaseFetch(
-        "pedidos?select=*&order=criado_em.desc"
-      );
+  const response =
+    await api(
+      "pedidos?select=*&order=criado_em.desc"
+    );
 
 
-    if (!response.ok) {
+  if (!response.ok) {
 
-      const error =
-        await response.text();
+    box.innerHTML =
+      `
+        <p>
+          Erro ao carregar pedidos:
+        </p>
 
-      container.innerHTML =
-        `
-          <p>
-            Erro ao carregar pedidos.
-          </p>
+        <pre>
+          ${escapeHtml(await response.text())}
+        </pre>
+      `;
 
-          <pre>
-            ${escapeHtml(error)}
-          </pre>
-        `;
-
-      return;
-    }
-
-
-    const orders =
-      await response.json();
-
-
-    if (!orders.length) {
-
-      container.innerHTML =
-        "<p>Nenhum pedido encontrado.</p>";
-
-      return;
-    }
-
-
-    container.innerHTML =
-      orders
-        .map(order => `
-
-          <div
-            class="cart-item"
-            style="
-              display:block;
-              margin-bottom:15px;
-            "
-          >
-
-            <strong>
-              Pedido #${escapeHtml(order.id)}
-            </strong>
-
-            <p>
-              Cliente:
-              ${escapeHtml(order.nome_cliente)}
-            </p>
-
-            <p>
-              WhatsApp:
-              ${escapeHtml(order.whatsapp)}
-            </p>
-
-            <p>
-              Endereço:
-              ${escapeHtml(order.endereco || "")}
-            </p>
-
-            <p>
-              Cidade:
-              ${escapeHtml(order.cidade || "")}
-            </p>
-
-            <p>
-              CEP:
-              ${escapeHtml(order.cep || "")}
-            </p>
-
-            <p>
-              Total:
-              <strong>
-                ${money(order.valor_total)}
-              </strong>
-            </p>
-
-            <p>
-              Status:
-              ${escapeHtml(order.status)}
-            </p>
-
-            <p>
-              Data:
-              ${escapeHtml(order.criado_em)}
-            </p>
-
-          </div>
-
-        `)
-        .join("");
-
-
-  } catch (error) {
-
-    console.error(error);
-
-    container.innerHTML =
-      "<p>Erro ao carregar pedidos.</p>";
-
+    return;
   }
 
+
+  const orders =
+    await response.json();
+
+
+  if (!orders.length) {
+
+    box.innerHTML =
+      "<p>Nenhum pedido encontrado.</p>";
+
+    return;
+  }
+
+
+  box.innerHTML =
+    orders.map(order => `
+
+      <div
+        class="cart-item"
+        style="
+          display:block;
+          margin-bottom:15px;
+        "
+      >
+
+        <strong>
+          Pedido #${escapeHtml(order.id)}
+        </strong>
+
+        <p>
+          Cliente:
+          ${escapeHtml(order.nome_cliente)}
+        </p>
+
+        <p>
+          WhatsApp:
+          ${escapeHtml(order.whatsapp)}
+        </p>
+
+        <p>
+          Endereço:
+          ${escapeHtml(order.endereco || "")}
+        </p>
+
+        <p>
+          Cidade:
+          ${escapeHtml(order.cidade || "")}
+        </p>
+
+        <p>
+          CEP:
+          ${escapeHtml(order.cep || "")}
+        </p>
+
+        <p>
+          Total:
+          <strong>
+            ${money(order.valor_total)}
+          </strong>
+        </p>
+
+        <p>
+          Status:
+          ${escapeHtml(order.status)}
+        </p>
+
+        <p>
+          Criado:
+          ${escapeHtml(order.criado_em)}
+        </p>
+
+      </div>
+
+    `).join("");
 }
 
 
 // ======================================================
-// SAIR DO ADMIN
-// ======================================================
-
-function logoutAdmin() {
-
-  isAdmin = false;
-
-  editingProductId = null;
-
-  render();
-
-}
-
-
-// ======================================================
-// INICIALIZAÇÃO
+// INICIAR
 // ======================================================
 
 loadProducts().catch(error => {
 
-  console.error(
-    "Erro inicial:",
-    error
-  );
-
+  console.error(error);
 
   const app =
     document.getElementById("app");
@@ -1622,7 +1537,7 @@ loadProducts().catch(error => {
         </h1>
 
         <p>
-          Não foi possível carregar os produtos.
+          Erro ao carregar os produtos.
         </p>
 
         <pre>
