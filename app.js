@@ -42,7 +42,6 @@ async function api(path, options = {}) {
     ...options,
     headers: {
       apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
       "Content-Type": "application/json",
       "Accept": "application/json",
       "Accept-Profile": "public",
@@ -127,7 +126,6 @@ function renderStore() {
 
           ${
             products.length
-
               ? products.map(product => `
 
                   <article class="product">
@@ -166,7 +164,6 @@ function renderStore() {
                   </article>
 
                 `).join("")
-
               : `
                 <p>
                   Nenhum produto disponível no momento.
@@ -405,17 +402,11 @@ async function checkout() {
         body: JSON.stringify({
 
           nome_cliente: nome,
-
           whatsapp: telefone,
-
           endereco: endereco,
-
           cidade: cidade,
-
           cep: cep,
-
           valor_total: total,
-
           status: "aguardando_pagamento"
 
         })
@@ -479,13 +470,9 @@ async function checkout() {
           body: JSON.stringify({
 
             pedido_id: pedidoId,
-
             produto_id: product.id,
-
             nome_produto: product.nome,
-
             quantidade: 1,
-
             preco: Number(product.preco)
 
           })
@@ -884,7 +871,6 @@ function renderAdmin() {
 
         ${
           products.length
-
             ? products.map(product => `
 
                 <div
@@ -939,7 +925,6 @@ function renderAdmin() {
                 </div>
 
               `).join("")
-
             : `
               <p>
                 Nenhum produto cadastrado.
@@ -1000,6 +985,7 @@ function renderAdmin() {
     </main>
 
   `;
+
 }
 
 
@@ -1071,8 +1057,6 @@ async function saveProduct() {
 
             headers: {
               apikey: SUPABASE_KEY,
-              Authorization:
-                `Bearer ${SUPABASE_KEY}`,
               "Content-Type":
                 file.type
             },
