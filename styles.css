@@ -304,3 +304,31 @@ footer {
     align-items: flex-start;
   }
     }
+.admin-panel {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+    url("assets/admin-bg.jpg");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  color: white;
+  padding: 25px;
+  border-radius: 18px;
+}
+
+.order-success {
+  margin-top: 25px;
+  padding: 25px;
+  border-radius: 18px;
+}
+
+.whatsapp-button,
+.whatsapp-link {
+  display: inline-block;
+  padding: 12px 18px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: bold;
+  }
