@@ -114,6 +114,7 @@ function restoreAdminSession() {
     ) {
       adminSession = session;
     }
+
   } catch (error) {
     console.error(error);
 
@@ -139,9 +140,7 @@ async function loadProducts() {
   );
 
   if (!response.ok) {
-    throw new Error(
-      "Não foi possível carregar os produtos."
-    );
+    throw new Error("Não foi possível carregar os produtos.");
   }
 
   products = await response.json();
@@ -344,6 +343,7 @@ async function saveProduct() {
           body: JSON.stringify(produto)
         }
       );
+
     } else {
       response = await fetch(
         `${SUPABASE_URL}/rest/v1/produtos`,
@@ -367,9 +367,7 @@ async function saveProduct() {
 
       console.error(error);
 
-      alert(
-        "Não foi possível salvar o produto."
-      );
+      alert("Não foi possível salvar o produto.");
 
       return;
     }
@@ -479,9 +477,7 @@ async function deleteProduct(id) {
 
       console.error(error);
 
-      alert(
-        "Não foi possível excluir o produto."
-      );
+      alert("Não foi possível excluir o produto.");
 
       return;
     }
@@ -529,7 +525,7 @@ function adminPanel() {
   }
 
   return `
-    <section class="admin">
+    <section class="admin admin-panel">
 
       <h2>Painel administrativo</h2>
 
@@ -641,16 +637,10 @@ function adminPanel() {
                         "
                       >
                     `
-                    : `
-                      <div>
-                        Sem imagem
-                      </div>
-                    `
+                    : `<div>Sem imagem</div>`
                 }
 
-                <h4>
-                  ${product.nome}
-                </h4>
+                <h4>${product.nome}</h4>
 
                 <p>
                   ${product.descricao || ""}
@@ -674,11 +664,7 @@ function adminPanel() {
 
                 <p>
                   Status:
-                  ${
-                    product.ativo
-                      ? "Ativo"
-                      : "Inativo"
-                  }
+                  ${product.ativo ? "Ativo" : "Inativo"}
                 </p>
 
                 <button
@@ -761,9 +747,7 @@ function render() {
                           : ""
                       }
 
-                      <h3>
-                        ${product.nome}
-                      </h3>
+                      <h3>${product.nome}</h3>
 
                       <p>
                         ${product.descricao || ""}
@@ -833,7 +817,7 @@ function render() {
               <input
                 id="cliente-telefone"
                 type="tel"
-                placeholder="Seu telefone"
+                placeholder="Seu WhatsApp"
               >
 
               <input
@@ -866,30 +850,23 @@ function render() {
 
       </section>
 
-      <section class="pix">
-
-        <h2>
-          Pagamento via Pix
-        </h2>
-
-        <p>
-          Chave Pix:
-        </p>
-
-        <div class="pix-key">
-          ${PIX_KEY}
-        </div>
-
-        <button onclick="copyPix()">
-          Copiar chave Pix
-        </button>
-
-      </section>
+      <section id="checkout-confirmation"></section>
 
       <footer>
+
         <p>
           Paixãobon7 © 2026
         </p>
+
+        <a
+          href="https://wa.me/${WHATSAPP}"
+          target="_blank"
+          rel="noopener"
+          class="whatsapp-link"
+        >
+          Falar no WhatsApp
+        </a>
+
       </footer>
 
     </main>
@@ -988,7 +965,7 @@ async function checkout() {
       .value
       .trim();
 
-  const telefone =
+  const whatsapp =
     document
       .getElementById("cliente-telefone")
       .value
@@ -1014,15 +991,12 @@ async function checkout() {
 
   if (
     !nome ||
-    !telefone ||
+    !whatsapp ||
     !endereco ||
     !cidade ||
     !cep
   ) {
-    alert(
-      "Preencha todos os dados do pedido."
-    );
-
+    alert("Preencha todos os dados do pedido.");
     return;
   }
 
@@ -1033,116 +1007,205 @@ async function checkout() {
       0
     );
 
-  const pedidoResponse =
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/pedidos`,
-      {
-        method: "POST",
+  try {
 
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation"
-        },
+    /* CRIA O PEDIDO */
 
-        body: JSON.stringify({
-          nome_cliente: nome,
-          telefone: telefone,
-          endereco: endereco,
-          cidade: cidade,
-          cep: cep,
-          total: total,
-          status: "aguardando_pagamento"
-        })
-      }
-    );
-
-  if (!pedidoResponse.ok) {
-    const error =
-      await pedidoResponse.text();
-
-    console.error(error);
-
-    alert(
-      "Não foi possível criar o pedido."
-    );
-
-    return;
-  }
-
-  const pedido =
-    await pedidoResponse.json();
-
-  const pedidoId =
-    pedido[0].id;
-
-  for (const product of cart) {
-    const itemResponse =
+    const pedidoResponse =
       await fetch(
-        `${SUPABASE_URL}/rest/v1/itens_pedido`,
+        `${SUPABASE_URL}/rest/v1/pedidos`,
         {
           method: "POST",
 
           headers: {
             apikey: SUPABASE_KEY,
             Authorization: `Bearer ${SUPABASE_KEY}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
           },
 
           body: JSON.stringify({
-            pedido_id: pedidoId,
-            produto_id: product.id,
-            nome_produto: product.nome,
-            quantidade: 1,
-            preco: product.preco
+            nome_cliente: nome,
+            whatsapp: whatsapp,
+            endereco: endereco,
+            cidade: cidade,
+            cep: cep,
+            valor_total: total,
+            status: "aguardando_pagamento"
           })
         }
       );
 
-    if (!itemResponse.ok) {
-      console.error(
-        await itemResponse.text()
-      );
-    }
-  }
+    if (!pedidoResponse.ok) {
+      const error =
+        await pedidoResponse.text();
 
-  const items =
-    cart
+      console.error(error);
+
+      alert(
+        "Não foi possível criar o pedido."
+      );
+
+      return;
+    }
+
+    const pedido =
+      await pedidoResponse.json();
+
+    if (!pedido || !pedido.length || !pedido[0].id) {
+      console.error(pedido);
+
+      alert(
+        "O pedido foi criado, mas não foi possível obter o número do pedido."
+      );
+
+      return;
+    }
+
+    const pedidoId =
+      pedido[0].id;
+
+    /* SALVA OS ITENS */
+
+    for (const product of cart) {
+
+      const itemResponse =
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/itens_pedido`,
+          {
+            method: "POST",
+
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: `Bearer ${SUPABASE_KEY}`,
+              "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+              pedido_id: pedidoId,
+              produto_id: product.id,
+              nome_produto: product.nome,
+              quantidade: 1,
+              preco: Number(product.preco)
+            })
+          }
+        );
+
+      if (!itemResponse.ok) {
+
+        const error =
+          await itemResponse.text();
+
+        console.error(error);
+
+        alert(
+          "O pedido foi criado, mas houve um problema ao salvar um dos produtos."
+        );
+
+        return;
+      }
+    }
+
+    /* LIMPA O CARRINHO */
+
+    const pedidoItens = cart
       .map(
         product =>
           `• ${product.nome} — ${money(product.preco)}`
       )
       .join("\n");
 
-  const message =
-`Olá! Quero fazer um pedido na Paixãobon7.
+    cart = [];
 
-Pedido: #${pedidoId}
+    render();
 
-Cliente: ${nome}
-Telefone: ${telefone}
+    /* MOSTRA CONFIRMAÇÃO */
 
-${items}
+    const confirmation =
+      document.getElementById(
+        "checkout-confirmation"
+      );
+
+    if (confirmation) {
+
+      const whatsappMessage =
+`Olá! Sou ${nome}.
+
+Quero enviar o comprovante do pedido #${pedidoId}.
 
 Total: ${money(total)}
 
-Pagamento via Pix.
+${pedidoItens}`;
 
-Chave Pix:
-${PIX_KEY}`;
+      const whatsappUrl =
+        `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
+          whatsappMessage
+        )}`;
 
-  const whatsappUrl =
-    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+      confirmation.innerHTML = `
+        <section class="order-success">
 
-  window.open(
-    whatsappUrl,
-    "_blank"
-  );
+          <h2>Pedido realizado com sucesso! 🎉</h2>
 
-  cart = [];
+          <p>
+            Número do pedido:
+            <strong>#${pedidoId}</strong>
+          </p>
 
-  render();
+          <p>
+            Total:
+            <strong>${money(total)}</strong>
+          </p>
+
+          <hr>
+
+          <h3>Pagamento via Pix</h3>
+
+          <p>
+            Copie a chave Pix abaixo:
+          </p>
+
+          <div class="pix-key">
+            ${PIX_KEY}
+          </div>
+
+          <button onclick="copyPix()">
+            Copiar chave Pix
+          </button>
+
+          <br><br>
+
+          <a
+            href="${whatsappUrl}"
+            target="_blank"
+            rel="noopener"
+            class="whatsapp-button"
+          >
+            Enviar comprovante pelo WhatsApp
+          </a>
+
+          <p>
+            Depois de fazer o Pix, clique no botão acima
+            para enviar o comprovante.
+          </p>
+
+        </section>
+      `;
+
+      confirmation.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Ocorreu um erro ao finalizar o pedido."
+    );
+  }
 }
 
 /* =========================
@@ -1169,22 +1232,19 @@ function copyPix() {
 restoreAdminSession();
 
 loadProducts().catch(error => {
+
   console.error(error);
 
   document.getElementById("app").innerHTML = `
     <main class="container">
 
-      <h1>
-        Paixãobon7
-      </h1>
+      <h1>Paixãobon7</h1>
 
       <p>
         Não foi possível carregar os produtos.
       </p>
 
-      <button
-        onclick="location.reload()"
-      >
+      <button onclick="location.reload()">
         Tentar novamente
       </button>
 
